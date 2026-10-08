@@ -1,6 +1,6 @@
 {
-  "name": "Rumo a 21 de Abril",
-  "short_name": "Rumo",
+  "name": "Path",
+  "short_name": "Focus",
   "description": "Rastreador de tarefas, metas e desafios com gráficos de evolução.",
   "lang": "pt-BR",
   "start_url": "./",
