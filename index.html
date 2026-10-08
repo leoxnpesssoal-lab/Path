@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f6b55">
+<meta name="description" content="Rastreador de tarefas, metas e desafios com gráficos de evolução.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Rumo">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;-webkit-font-smoothing:antialiased}
+img{max-width:100%}
+</style>
+<title>Rumo a 21 de Abril</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: countdown strip on top, week board with one block per coluna, then a chart with a column selector */
+:root{
+  --bg:#f3f5f4; --surface:#ffffff; --ink:#15211d; --muted:#5c6b66; --line:#dde3e0; --soft:#e9eeec;
+  --accent:#0f6b55; --accent-ink:#ffffff; --ok:#1f8a4c; --warn:#b4630f; --danger:#b3261e;
+  --c0:#2f5fd0; --c1:#1f8a4c; --c2:#d0661f; --c3:#7a4bc4; --c4:#c23b6a; --c5:#11808a;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Figtree", "Segoe UI", system-ui, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1513; --surface:#18201d; --ink:#e7eeeb; --muted:#9aaba5; --line:#2a3531; --soft:#212b27;
+  --accent:#3fbf97; --accent-ink:#06231a; --ok:#4fc27e; --warn:#e39a4f; --danger:#f2867e;
+  --c0:#7b9ff0; --c1:#4fc27e; --c2:#f0955a; --c3:#ad8aea; --c4:#ec7fa5; --c5:#4cc3cc; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1513; --surface:#18201d; --ink:#e7eeeb; --muted:#9aaba5; --line:#2a3531; --soft:#212b27;
+  --accent:#3fbf97; --accent-ink:#06231a; --ok:#4fc27e; --warn:#e39a4f; --danger:#f2867e;
+  --c0:#7b9ff0; --c1:#4fc27e; --c2:#f0955a; --c3:#ad8aea; --c4:#ec7fa5; --c5:#4cc3cc; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1040px;margin:0 auto;padding-inline:16px;padding-block:24px 48px;display:flex;flex-direction:column;gap:22px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* Countdown */
+.hero{display:grid;grid-template-columns:auto minmax(0,1fr);gap:20px 28px;align-items:end}
+.big{font-family:var(--display);font-weight:800;font-size:clamp(56px,11vw,96px);line-height:.85;letter-spacing:-.03em;color:var(--accent)}
+.hero h1{font-size:clamp(22px,3.4vw,30px);font-weight:700}
+.hero p{margin:4px 0 0;color:var(--muted)}
+.track{grid-column:1/-1;display:flex;flex-direction:column;gap:6px}
+.bar{height:10px;background:var(--soft);border-radius:99px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.track-labels{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+
+/* Panels */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.panel-head h2{font-size:20px;font-weight:700}
+.weeknav{display:flex;align-items:center;gap:6px}
+.weeknav .lbl{min-width:150px;text-align:center;font-weight:600}
+.ghost{border:1px solid var(--line);background:transparent;border-radius:8px;padding:6px 10px}
+.ghost:hover{background:var(--soft)}
+.ghost:disabled{opacity:.4;cursor:default}
+.primary{border:0;background:var(--accent);color:var(--accent-ink);border-radius:8px;padding:8px 14px;font-weight:600}
+
+/* Columns */
+.cols{display:flex;flex-direction:column;gap:18px}
+.col{display:flex;flex-direction:column;gap:8px;border-top:3px solid var(--cc);padding-top:12px}
+.col-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.col-head h3{font-size:18px;font-weight:700;display:flex;align-items:center;gap:8px}
+.col-head h3 .dot{width:10px;height:10px;border-radius:3px;background:var(--cc)}
+.col-meta{font-size:13px;color:var(--muted)}
+.task{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px 14px;align-items:center;padding:8px 0;border-bottom:1px solid var(--soft)}
+.task:last-of-type{border-bottom:0}
+.tname{font-weight:600;min-width:0;overflow-wrap:anywhere}
+.tname small{display:block;font-weight:400;color:var(--muted);font-size:12.5px}
+.pill{font-family:var(--mono);font-size:12px;padding:3px 8px;border-radius:99px;background:var(--soft);color:var(--muted);white-space:nowrap}
+.pill.met{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.days{display:flex;gap:4px}
+.day{width:40px;height:44px;border-radius:8px;border:1px solid var(--line);background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:0}
+.day span{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.day b{font-family:var(--mono);font-size:13px}
+.day.today{border-color:var(--ink);border-width:2px}
+.day.on{background:var(--cc);border-color:var(--cc);color:#fff}
+.day.on span{color:rgba(255,255,255,.85)}
+.day:disabled{opacity:.35;cursor:default}
+.del{border:0;background:transparent;color:var(--muted);font-size:18px;width:28px;height:28px;border-radius:6px;line-height:1}
+.del:hover{background:var(--soft);color:var(--danger)}
+.confirm{display:flex;gap:6px;align-items:center;font-size:13px;flex-wrap:wrap}
+.confirm .yes{border:0;background:var(--danger);color:#fff;border-radius:6px;padding:4px 10px}
+.empty{color:var(--muted);font-size:14px;padding:4px 0}
+.add{display:flex;gap:8px;flex-wrap:wrap}
+.add input{flex:1 1 180px;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:7px 10px}
+.add select{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:7px 8px}
+.addcol{border-top:1px dashed var(--line);padding-top:16px}
+
+/* Chart */
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.stat{background:var(--soft);border-radius:10px;padding:10px 12px}
+.stat span{display:block;font-size:12px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.stat b{font-family:var(--mono);font-size:22px}
+#chart{width:100%;min-height:240px}
+.big{cursor:pointer}
+.goal-edit{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-top:4px}
+.goal-edit .linkbtn{padding-left:0}
+#goalMsg{color:var(--danger)}
+.chartbox{width:100%;min-width:0}
+.chartbox svg{display:block;max-width:100%;height:auto}
+.legend{font-size:12.5px;color:var(--muted)}
+.spark{display:inline-flex;align-items:center}
+.spark svg{display:block}
+.head-left{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}
+.period{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;font-size:13px;color:var(--muted);background:var(--soft);border-radius:10px;padding:8px 10px}
+.period label{display:flex;align-items:center;gap:6px}
+.period input[type=date]{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:4px 6px;font-size:13px}
+.period strong{color:var(--ink);font-family:var(--mono);font-weight:500}
+.linkbtn{border:0;background:transparent;color:var(--muted);text-decoration:underline;text-underline-offset:3px;padding:2px 4px;font-size:13px}
+.linkbtn:hover{color:var(--ink)}
+.chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px}
+.ccard{border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0;border-top:3px solid var(--cc)}
+.ccard h3{font-size:16px;font-weight:700}
+.ccard .sub{font-size:12.5px;color:var(--muted)}
+.mini-stats{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--muted)}
+.mini-stats b{font-family:var(--mono);color:var(--ink);font-weight:500}
+.general{border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;border-top:3px solid var(--accent)}
+.general h3{font-size:18px;font-weight:700}
+.backup{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center;font-size:13px}
+.backup .ghost{cursor:pointer;font-size:13px}
+#backupMsg{color:var(--muted)}
+.status{font-size:12.5px;color:var(--muted);text-align:center}
+
+@media (max-width:720px){
+  .task{grid-template-columns:minmax(0,1fr) auto}
+  .task .days{grid-column:1/-1;justify-content:space-between}
+  .day{flex:1 1 0;width:auto;max-width:48px}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .hero{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <section class="hero" aria-label="Contagem regressiva">
+    <div class="big num" id="daysLeft" title="Clique para mudar a data">195</div>
+    <div>
+      <h1 id="heroTitle">dias até 21 de abril de 2027</h1>
+      <p id="heroSub">Marque cada dia cumprido e acompanhe a evolução de cada coluna.</p>
+    </div>
+    <div class="track">
+      <div class="bar"><i id="progressFill" style="width:0%"></i></div>
+      <div class="track-labels"><span id="goalStartLbl">8 out 2026</span><span id="progressPct">0% do caminho</span><span id="goalEndLbl">21 abr 2027</span></div>
+      <div class="goal-edit">
+        <button type="button" class="linkbtn" id="goalToggle" aria-expanded="false">Editar datas da contagem</button>
+        <form class="period" id="goalForm" hidden>
+          <label>Começo <input type="date" id="goalStart"></label>
+          <label>Data final <input type="date" id="goalEnd"></label>
+          <button type="submit" class="primary">Pronto</button>
+          <button type="button" class="linkbtn" id="goalCancel">Cancelar</button>
+          <span id="goalMsg" role="status"></span>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Semana">
+    <div class="panel-head">
+      <h2>Semana</h2>
+      <div class="weeknav">
+        <button class="ghost" id="prevWeek" aria-label="Semana anterior">←</button>
+        <div class="lbl" id="weekLabel">—</div>
+        <button class="ghost" id="nextWeek" aria-label="Próxima semana">→</button>
+        <button class="ghost" id="thisWeek">Hoje</button>
+      </div>
+    </div>
+    <div class="cols" id="cols"></div>
+    <form class="add addcol" id="addColForm">
+      <input id="newColName" placeholder="Nova coluna (ex.: Estudos, Saúde, Finanças)" maxlength="40" aria-label="Nome da nova coluna">
+      <button class="primary" type="submit">Adicionar coluna</button>
+    </form>
+  </section>
+
+  <section class="panel" aria-label="Evolução">
+    <div class="panel-head">
+      <h2>Evolução semanal</h2>
+    </div>
+    <div class="legend">Cada barra é uma semana: quanto da meta semanal das tarefas foi cumprido. A linha tracejada marca 100%. A barra mais clara é a semana atual, ainda em andamento.</div>
+    <div class="chart-grid" id="colCharts"></div>
+    <div class="general">
+      <h3>Geral · todas as colunas</h3>
+      <div class="stats" id="stats"></div>
+      <div class="chartbox" id="chart"></div>
+    </div>
+  </section>
+
+  <div class="backup">
+    <button type="button" class="ghost" id="exportBtn">Salvar cópia de segurança</button>
+    <label class="ghost" for="importFile" id="importLbl">Restaurar cópia</label>
+    <input type="file" id="importFile" accept="application/json,.json" hidden>
+    <span id="backupMsg" role="status"></span>
+  </div>
+  <div class="status" id="status">Carregando…</div>
+</div>
+
+<script>
+(function(){
+const KEY='rumo21abril.v1', DEF_GOAL={start:'2026-10-08',end:'2027-04-21'};
+const G=()=>state.goal;
+const WD=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+const MES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const NCOL=6;
+
+const pad=n=>String(n).padStart(2,'0');
+const ymd=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const parse=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)};
+const addDays=(d,n)=>{const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()+n);return x};
+const mondayOf=d=>addDays(d,-((d.getDay()+6)%7));
+const dayDiff=(a,b)=>Math.round((b-a)/864e5);
+const uid=()=>'x'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const clone=o=>JSON.parse(JSON.stringify(o));
+const isDate=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s);
+const fmt=s=>{const d=parse(s);return d.getDate()+' '+MES[d.getMonth()]+(d.getFullYear()!==2026?' '+d.getFullYear():'')};
+
+const today=new Date(); today.setHours(0,0,0,0);
+const todayS=ymd(today);
+const curMon=mondayOf(today);
+
+function defaults(){
+  return {v:2,
+    cols:[{id:'c1',name:'Trabalho',color:0},{id:'c2',name:'Metas',color:1},
+          {id:'c3',name:'Desafio',color:2,start:todayS,end:ymd(addDays(today,29))}],
+    tasks:[{id:'t1',col:'c2',name:'Academia',target:5,from:ymd(curMon)}],
+    checks:{}, goal:clone(DEF_GOAL)};
+}
+function sane(s){
+  if(!s||!Array.isArray(s.cols)||!Array.isArray(s.tasks)) return defaults();
+  if(!s.checks||typeof s.checks!=='object') s.checks={};
+  if(!s.goal||!isDate(s.goal.start)||!isDate(s.goal.end)||s.goal.end<s.goal.start) s.goal=clone(DEF_GOAL);
+  if(!s.v||s.v<2){ // first version had no challenge dates
+    const d=s.cols.find(c=>c.id==='c3')||s.cols.find(c=>/desafio/i.test(c.name));
+    if(d&&!d.start){d.start=todayS;d.end=ymd(addDays(today,29));}
+    s.v=2;
+  }
+  s.cols.forEach(c=>{if(c.start&&!isDate(c.start))delete c.start; if(c.end&&!isDate(c.end))delete c.end; if(c.start&&!c.end)c.end=ymd(addDays(parse(c.start),29));});
+  return s;
+}
+
+let state;
+try{const raw=localStorage.getItem(KEY); state=sane(raw?JSON.parse(raw):null);}catch(e){state=defaults();}
+
+let weekOff=0, confirmFor=null;
+
+/* ---------- persistence ---------- */
+let docRef=null, timer=null, saving=false, again=false;
+const statusEl=document.getElementById('status');
+function setStatus(t){statusEl.textContent=t}
+function persist(){
+  state.updatedAt=Date.now();
+  try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}
+  if(docRef){clearTimeout(timer);timer=setTimeout(flush,600);}
+}
+async function flush(){
+  if(!docRef) return;
+  if(saving){again=true;return}
+  saving=true;
+  try{await docRef.set(clone(state)); setStatus('Salvo na sua conta · abre igual no computador e no celular');}
+  catch(e){setStatus(e&&e.code==='quota_exceeded'?'Espaço cheio: remova tarefas antigas para continuar salvando.':'Não consegui salvar agora; suas marcações ficam neste navegador e tento de novo na próxima mudança.');}
+  saving=false;
+  if(again){again=false;flush();}
+}
+(async function connect(){
+  setStatus('Salvo neste navegador');
+  try{
+    if(!window.claude||!window.claude.use) return;
+    const [db,user]=await Promise.all([claude.use('db'),claude.use('user')]);
+    if(!db||!user) return;
+    const id=await user.id();
+    if(!id) return;
+    const ref=db.doc('data/users/'+id+'/tracker');
+    const snap=await ref.get();
+    docRef=ref;
+    const remote=snap.exists?snap.data():null;
+    if(remote&&(remote.updatedAt||0)>=(state.updatedAt||0)){
+      const before=JSON.stringify(remote);
+      state=sane(clone(remote));
+      try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}
+      renderAll();
+      if(JSON.stringify(state)!==before) await ref.set(clone(state));
+    } else {await ref.set(clone(state));} // this browser has newer changes (or nothing saved yet): keep them
+    setStatus('Salvo na sua conta · abre igual no computador e no celular');
+  }catch(e){setStatus('Salvo neste navegador');}
+})();
+
+/* ---------- helpers ---------- */
+function h(tag,attrs,...kids){
+  const el=document.createElement(tag);
+  if(attrs) for(const k in attrs){
+    const v=attrs[k];
+    if(k==='class') el.className=v;
+    else if(k==='style') el.style.cssText=v;
+    else if(k.startsWith('on')) el.addEventListener(k.slice(2),v);
+    else if(v===true) el.setAttribute(k,'');
+    else if(v!==false&&v!=null) el.setAttribute(k,v);
+  }
+  for(const c of kids.flat()){ if(c==null||c===false) continue; el.append(c.nodeType?c:document.createTextNode(String(c))); }
+  return el;
+}
+const colVar=i=>'var(--c'+(i%NCOL)+')';
+const colOf=id=>state.cols.find(c=>c.id===id);
+const isOn=(tid,ds)=>!!(state.checks[tid]&&state.checks[tid][ds]);
+function rangeOf(col){return col&&col.start?{s:parse(col.start),e:parse(col.end)}:{s:mondayOf(parse(G().start)),e:parse(G().end)}}
+function inRange(col,d){const r=rangeOf(col);return d>=r.s&&d<=r.e}
+
+/* One task in one week → [done, target] (target scaled for weeks only partly inside the period) or null. */
+function taskWeek(t,mon){
+  const col=colOf(t.col); if(!col) return null;
+  if(!col.start&&t.from&&t.from>ymd(mon)) return null;
+  const r=rangeOf(col); let days=0,done=0;
+  for(let i=0;i<7;i++){const d=addDays(mon,i); if(d<r.s||d>r.e) continue; days++; if(isOn(t.id,ymd(d))) done++;}
+  if(!days) return null;
+  const tg=days===7?t.target:Math.max(1,Math.round(t.target*days/7));
+  return [Math.min(done,tg),tg];
+}
+function weekPct(ts,mon){let dn=0,tg=0;ts.forEach(t=>{const r=taskWeek(t,mon);if(r){dn+=r[0];tg+=r[1]}});return tg?dn/tg:null}
+function weeksBetween(s,e){const out=[];let m=mondayOf(s);while(m<=e){out.push(m);m=addDays(m,7)}return out}
+function series(ts,s,e){const ws=weeksBetween(s,e);return {ws,vals:ws.map(m=>m>curMon?null:weekPct(ts,m))}}
+function summary(ws,vals,ts){
+  const past=vals.filter(v=>v!=null);
+  const i=ws.findIndex(m=>+m===+curMon);
+  let checks=0;
+  ts.forEach(t=>{const col=colOf(t.col);Object.keys(state.checks[t.id]||{}).forEach(ds=>{if(inRange(col,parse(ds)))checks++})});
+  return {thisW:i<0?null:vals[i],avg:past.length?past.reduce((a,b)=>a+b,0)/past.length:null,hit:past.filter(v=>v>=1).length,n:past.length,checks};
+}
+const pctTxt=v=>v==null?'—':Math.round(v*100)+'%';
+
+/* ---------- bar chart (full and mini) ---------- */
+const NS='http://www.w3.org/2000/svg';
+const S=(tag,a,txt)=>{const e=document.createElementNS(NS,tag);for(const k in a)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;return e};
+function bars(box,{ws,vals,color,height,mini,endLabel}){
+  const W=mini?120:Math.max(260,box.clientWidth||600), H=mini?30:height;
+  const L=mini?0:40, R=mini?0:8, T=mini?2:16, B=mini?2:28;
+  const iw=W-L-R, ih=H-T-B, n=Math.max(1,ws.length), slot=iw/n;
+  const bw=mini?Math.max(2,Math.min(8,slot*.7)):Math.max(3,Math.min(18,slot*.62));
+  const y=v=>T+ih-Math.min(v,1)*ih;
+  const svg=S('svg',{width:W,height:H,viewBox:'0 0 '+W+' '+H,role:'img','aria-label':mini?'Mini gráfico semanal':'Gráfico de cumprimento semanal'});
+  if(mini){
+    svg.append(S('line',{x1:0,x2:W,y1:T,y2:T,stroke:'var(--line)','stroke-dasharray':'3 3'}));
+  }else{
+    [0,.5,1].forEach(v=>{
+      svg.append(S('line',{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:'var(--line)','stroke-width':1,'stroke-dasharray':v===1?'5 4':''}));
+      svg.append(S('text',{x:L-8,y:y(v)+4,'text-anchor':'end','font-size':11,fill:'var(--muted)','font-family':'JetBrains Mono, monospace'},Math.round(v*100)+'%'));
+    });
+  }
+  let lastMonth=-1, lastX=-99;
+  ws.forEach((m,i)=>{
+    const cx=L+slot*i+slot/2;
+    if(!mini){const mo=addDays(m,3).getMonth();
+      if(mo!==lastMonth&&cx-lastX>26){lastMonth=mo;lastX=cx;svg.append(S('text',{x:cx,y:H-9,'text-anchor':'middle','font-size':11,fill:'var(--muted)'},MES[mo]))}}
+    const v=vals[i];
+    if(v==null){svg.append(S('rect',{x:cx-bw/2,y:T+ih-2,width:bw,height:2,rx:1,fill:'var(--line)'}));return}
+    const hgt=Math.max(2,Math.min(v,1)*ih);
+    const r=S('rect',{x:cx-bw/2,y:T+ih-hgt,width:bw,height:hgt,rx:Math.min(mini?1.5:4,bw/2),fill:color,'fill-opacity':+m===+curMon?.5:(v>=1?1:.8)});
+    r.append(S('title',{},'Semana de '+m.getDate()+' '+MES[m.getMonth()]+': '+Math.round(v*100)+'%'));
+    svg.append(r);
+  });
+  if(!mini&&endLabel) svg.append(S('text',{x:W-R,y:T-4,'text-anchor':'end','font-size':11,'font-weight':600,fill:'var(--ink)'},endLabel+' ⚑'));
+  box.textContent=''; box.append(svg);
+}
+
+/* ---------- countdown ---------- */
+const MESL=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+function renderHero(){
+  const gs=parse(G().start), ge=parse(G().end);
+  const total=Math.max(1,dayDiff(gs,ge));
+  const left=Math.max(0,dayDiff(today,ge));
+  const pct=Math.min(100,Math.max(0,Math.round((dayDiff(gs,today)/total)*100)));
+  document.getElementById('daysLeft').textContent=left;
+  document.getElementById('heroTitle').textContent=(left===1?'dia até ':'dias até ')+ge.getDate()+' de '+MESL[ge.getMonth()]+' de '+ge.getFullYear();
+  const m=Math.floor(left/30.44);
+  let sub;
+  if(today<gs) sub='A contagem começa em '+gs.getDate()+' de '+MESL[gs.getMonth()]+'. Faltam '+dayDiff(today,gs)+' dias para o início.';
+  else if(left>0) sub='Cerca de '+m+(m===1?' mês':' meses')+' e '+Math.floor(left/7)+' semanas pela frente. Marque cada dia cumprido.';
+  else sub='Chegou o dia! Veja abaixo como foi sua evolução, ou mude a data final para continuar.';
+  document.getElementById('heroSub').textContent=sub;
+  document.getElementById('progressFill').style.width=pct+'%';
+  document.getElementById('progressPct').textContent=pct+'% do caminho';
+  document.getElementById('goalStartLbl').textContent=gs.getDate()+' '+MES[gs.getMonth()]+' '+gs.getFullYear();
+  document.getElementById('goalEndLbl').textContent=ge.getDate()+' '+MES[ge.getMonth()]+' '+ge.getFullYear();
+}
+
+/* ---------- period editor ---------- */
+function periodRow(col){
+  const r=rangeOf(col), total=dayDiff(r.s,r.e)+1;
+  let info;
+  if(today<r.s) info='Começa em '+dayDiff(today,r.s)+(dayDiff(today,r.s)===1?' dia':' dias');
+  else if(today>r.e) info='Encerrado · '+total+' dias';
+  else {const d=dayDiff(r.s,today)+1, left=dayDiff(today,r.e); info='Dia '+d+' de '+total+' · '+(left===0?'último dia':'faltam '+left+(left===1?' dia':' dias'));}
+  const st=h('input',{type:'date',id:'start-'+col.id,value:col.start,'aria-label':'Início'});
+  const en=h('input',{type:'date',id:'end-'+col.id,value:col.end,'aria-label':'Fim'});
+  st.addEventListener('change',()=>{if(!isDate(st.value)){st.value=col.start;return} col.start=st.value; if(col.end<col.start) col.end=ymd(addDays(parse(col.start),29)); persist(); renderAll();});
+  en.addEventListener('change',()=>{if(!isDate(en.value)||en.value<col.start){en.value=col.end;return} col.end=en.value; persist(); renderAll();});
+  return h('div',{class:'period'},
+    h('label',null,'Início',st), h('label',null,'Fim',en),
+    h('strong',null,info),
+    h('button',{type:'button',class:'linkbtn',onclick:()=>{const s=today;col.start=ymd(s);col.end=ymd(addDays(s,dayDiff(r.s,r.e)));persist();renderAll();}},'Começar de novo hoje'),
+    h('button',{type:'button',class:'linkbtn',onclick:()=>{delete col.start;delete col.end;persist();renderAll();}},'Tirar período'));
+}
+
+/* ---------- week board ---------- */
+function renderWeek(){
+  const mon=addDays(curMon,weekOff*7), sun=addDays(mon,6);
+  const lbl=mon.getDate()+' '+MES[mon.getMonth()]+' – '+sun.getDate()+' '+MES[sun.getMonth()];
+  document.getElementById('weekLabel').textContent=weekOff===0?'Esta semana · '+lbl:lbl;
+  document.getElementById('nextWeek').disabled=weekOff>=0;
+  document.getElementById('thisWeek').disabled=weekOff===0;
+
+  const wrap=document.getElementById('cols'); wrap.textContent='';
+  state.cols.forEach(col=>{
+    const tasks=state.tasks.filter(t=>t.col===col.id);
+    const wp=weekPct(tasks,mon);
+    const r=rangeOf(col);
+    const sec=h('div',{class:'col',style:'--cc:'+colVar(col.color)});
+    const spark=h('span',{class:'spark',title:'Evolução semanal de '+col.name});
+    const sr=series(tasks,r.s,r.e);
+    bars(spark,{ws:sr.ws,vals:sr.vals,color:colVar(col.color),mini:true});
+    const head=h('div',{class:'col-head'},
+      h('div',{class:'head-left'},h('h3',null,h('i',{class:'dot'}),col.name),spark),
+      confirmFor==='col:'+col.id
+        ? h('div',{class:'confirm'},'Apagar a coluna e suas '+tasks.length+' tarefas?',
+            h('button',{class:'yes',type:'button',onclick:()=>{state.tasks=state.tasks.filter(t=>{if(t.col===col.id){delete state.checks[t.id];return false}return true});state.cols=state.cols.filter(c=>c.id!==col.id);confirmFor=null;persist();renderAll()}},'Apagar'),
+            h('button',{class:'ghost',type:'button',onclick:()=>{confirmFor=null;renderWeek()}},'Cancelar'))
+        : h('div',{class:'confirm'},
+            h('span',{class:'col-meta num'},wp==null?'':Math.round(wp*100)+'% da meta da semana'),
+            col.start?null:h('button',{type:'button',class:'linkbtn',onclick:()=>{col.start=todayS;col.end=ymd(addDays(today,29));persist();renderAll();}},'Definir período'),
+            h('button',{class:'del',type:'button','aria-label':'Apagar coluna '+col.name,title:'Apagar coluna',onclick:()=>{confirmFor='col:'+col.id;renderWeek()}},'×'))
+    );
+    sec.append(head);
+    if(col.start) sec.append(periodRow(col));
+    if(!tasks.length) sec.append(h('div',{class:'empty'},'Nenhuma tarefa ainda. Adicione a primeira abaixo.'));
+    tasks.forEach(t=>{
+      const tw=taskWeek(t,mon);
+      const d=tw?tw[0]:0, tg=tw?tw[1]:t.target;
+      const days=h('div',{class:'days'});
+      for(let i=0;i<7;i++){
+        const dt=addDays(mon,i), ds=ymd(dt), on=isOn(t.id,ds), off=dt>today||(col.start&&!inRange(col,dt));
+        days.append(h('button',{type:'button',class:'day'+(on?' on':'')+(ds===todayS?' today':''),disabled:off,
+          'aria-pressed':on?'true':'false','aria-label':t.name+' '+WD[i]+' '+dt.getDate(),
+          onclick:()=>{const c=state.checks[t.id]||(state.checks[t.id]={}); if(c[ds])delete c[ds]; else c[ds]=true; persist(); renderWeek(); renderCharts();}},
+          h('span',null,WD[i]),h('b',null,dt.getDate())));
+      }
+      const row=h('div',{class:'task'},
+        h('div',{class:'tname'},t.name,h('small',null,t.target===7?'Todos os dias':t.target+'× por semana')),
+        confirmFor==='task:'+t.id
+          ? h('div',{class:'confirm'},'Remover?',
+              h('button',{class:'yes',type:'button',onclick:()=>{state.tasks=state.tasks.filter(x=>x.id!==t.id);delete state.checks[t.id];confirmFor=null;persist();renderAll()}},'Sim'),
+              h('button',{class:'ghost',type:'button',onclick:()=>{confirmFor=null;renderWeek()}},'Não'))
+          : h('div',{class:'confirm'},
+              tw?h('span',{class:'pill'+(d>=tg?' met':'')},d+'/'+tg):h('span',{class:'pill'},'fora do período'),
+              h('button',{class:'del',type:'button','aria-label':'Remover '+t.name,title:'Remover tarefa',onclick:()=>{confirmFor='task:'+t.id;renderWeek()}},'×')),
+        days);
+      sec.append(row);
+    });
+    const inName=h('input',{id:'new-'+col.id,placeholder:'Nova tarefa em '+col.name,maxlength:'60','aria-label':'Nome da nova tarefa'});
+    const sel=h('select',{id:'freq-'+col.id,'aria-label':'Vezes por semana'},
+      [1,2,3,4,5,6,7].map(n=>h('option',{value:n,selected:n===3},n===7?'todo dia':n+'×/semana')));
+    sec.append(h('form',{class:'add',onsubmit:e=>{e.preventDefault();const name=inName.value.trim();if(!name){inName.focus();return}
+      state.tasks.push({id:uid(),col:col.id,name,target:+sel.value,from:ymd(curMon)});persist();renderAll();
+      const nx=document.getElementById('new-'+col.id); if(nx) nx.focus();}},
+      inName,sel,h('button',{class:'ghost',type:'submit'},'Adicionar')));
+    wrap.append(sec);
+  });
+  if(!state.cols.length) wrap.append(h('div',{class:'empty'},'Crie uma coluna abaixo para começar.'));
+}
+
+/* ---------- charts ---------- */
+function renderCharts(){
+  const grid=document.getElementById('colCharts'); grid.textContent=''; const pending=[];
+  state.cols.forEach(col=>{
+    const ts=state.tasks.filter(t=>t.col===col.id), r=rangeOf(col);
+    const sr=series(ts,r.s,r.e), sm=summary(sr.ws,sr.vals,ts);
+    const box=h('div',{class:'chartbox'});
+    const card=h('div',{class:'ccard',style:'--cc:'+colVar(col.color)},
+      h('div',null,h('h3',null,col.name),h('div',{class:'sub'},col.start?'Período: '+fmt(col.start)+' a '+fmt(col.end):'Até '+fmt(G().end))),
+      h('div',{class:'mini-stats'},
+        h('span',null,'Esta semana ',h('b',null,pctTxt(sm.thisW))),
+        h('span',null,'Média ',h('b',null,pctTxt(sm.avg))),
+        h('span',null,'Semanas 100% ',h('b',null,sm.hit+'/'+sm.n)),
+        h('span',null,'Dias marcados ',h('b',null,sm.checks))),
+      box,
+      ts.length?null:h('div',{class:'empty'},'Sem tarefas nesta coluna ainda.'));
+    grid.append(card);
+    pending.push(()=>bars(box,{ws:sr.ws,vals:sr.vals,color:colVar(col.color),height:170,endLabel:fmt(ymd(r.e))}));
+  });
+  pending.forEach(f=>f()); // draw after every card is in place, so each chart measures its final width
+
+  const ts=state.tasks, gs=series(ts,mondayOf(parse(G().start)),parse(G().end)), sm=summary(gs.ws,gs.vals,ts);
+  const st=document.getElementById('stats'); st.textContent='';
+  [['Esta semana',pctTxt(sm.thisW)],['Média',pctTxt(sm.avg)],['Semanas 100%',sm.hit+' de '+sm.n],['Dias marcados',sm.checks]]
+    .forEach(([k,v])=>st.append(h('div',{class:'stat'},h('span',null,k),h('b',null,v))));
+  bars(document.getElementById('chart'),{ws:gs.ws,vals:gs.vals,color:'var(--accent)',height:240,endLabel:fmt(G().end)});
+}
+
+function renderAll(){renderHero();renderWeek();renderCharts();}
+
+/* ---------- events ---------- */
+const goalForm=document.getElementById('goalForm'), goalToggle=document.getElementById('goalToggle'), goalMsg=document.getElementById('goalMsg');
+function openGoal(open){goalForm.hidden=!open;goalToggle.setAttribute('aria-expanded',open?'true':'false');goalMsg.textContent='';
+  if(open){document.getElementById('goalStart').value=G().start;document.getElementById('goalEnd').value=G().end;document.getElementById('goalEnd').focus();}}
+goalToggle.onclick=()=>openGoal(goalForm.hidden);
+document.getElementById('goalCancel').onclick=()=>openGoal(false);
+function applyGoal(){
+  const a=document.getElementById('goalStart').value, b=document.getElementById('goalEnd').value;
+  if(!isDate(a)||!isDate(b)){goalMsg.textContent='Escolha as duas datas.';return false}
+  if(b<=a){goalMsg.textContent='A data final precisa ser depois do começo.';return false}
+  goalMsg.textContent='';
+  if(a!==G().start||b!==G().end){state.goal={start:a,end:b}; persist(); renderAll();}
+  return true;
+}
+['goalStart','goalEnd'].forEach(id=>{const el=document.getElementById(id);el.addEventListener('change',applyGoal);el.addEventListener('input',applyGoal);});
+goalForm.onsubmit=e=>{e.preventDefault(); if(applyGoal()) openGoal(false);};
+document.getElementById('daysLeft').addEventListener('click',()=>openGoal(true));
+document.getElementById('prevWeek').onclick=()=>{weekOff--;confirmFor=null;renderWeek()};
+document.getElementById('nextWeek').onclick=()=>{if(weekOff<0){weekOff++;confirmFor=null;renderWeek()}};
+document.getElementById('thisWeek').onclick=()=>{weekOff=0;confirmFor=null;renderWeek()};
+document.getElementById('addColForm').onsubmit=e=>{
+  e.preventDefault(); const inp=document.getElementById('newColName'); const name=inp.value.trim(); if(!name){inp.focus();return}
+  const used=state.cols.map(c=>c.color); let color=0; while(used.includes(color)&&color<NCOL-1)color++; if(used.includes(color))color=state.cols.length%NCOL;
+  state.cols.push({id:uid(),name,color}); inp.value=''; persist(); renderAll();
+};
+let rt,lastW=0;
+const onResize=()=>{clearTimeout(rt);rt=setTimeout(()=>{const w=document.querySelector('.wrap').clientWidth;if(w!==lastW){lastW=w;renderCharts()}},100)};
+try{new ResizeObserver(onResize).observe(document.querySelector('.wrap'))}catch(e){window.addEventListener('resize',onResize)}
+
+/* ---------- backup (só no app) ---------- */
+const bMsg=document.getElementById('backupMsg');
+document.getElementById('exportBtn').onclick=()=>{
+  try{
+    const blob=new Blob([JSON.stringify(state,null,1)],{type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='rastreador-backup-'+todayS+'.json';
+    document.body.append(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+    bMsg.textContent='Cópia salva na pasta de downloads.';
+  }catch(e){bMsg.textContent='Não consegui gerar a cópia neste aparelho.';}
+};
+document.getElementById('importFile').onchange=e=>{
+  const f=e.target.files&&e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{try{const d=JSON.parse(r.result); if(!d||!Array.isArray(d.cols)||!Array.isArray(d.tasks)) throw 0;
+      state=sane(d); persist(); renderAll(); bMsg.textContent='Cópia restaurada.';}
+    catch(err){bMsg.textContent='Esse arquivo não é uma cópia do rastreador.';}
+    e.target.value='';};
+  r.readAsText(f);
+};
+if('serviceWorker' in navigator&&location.protocol!=='file:'){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}
+
+renderAll();
+})();
+</script>
+
+</body>
+</html>
